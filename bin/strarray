@@ -1,0 +1,29 @@
+#!/usr/bin/env python
+
+import argparse
+import sys
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description=("Create a string with repeated elements separated "
+                     "by a delimiter")
+    )
+    parser.add_argument(
+        "s",
+        help="The string to be repeated N times"
+    )
+    parser.add_argument(
+        "n",
+        type=int,
+        help="The number of times to repeat the string"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default=",",
+        help="The delimiter to join the strings with"
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    print args.delimiter.join([args.s]*args.n)

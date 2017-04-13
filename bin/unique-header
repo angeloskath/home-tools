@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+
+import argparse
+import errno
+from collections import defaultdict
+from shutil import copyfileobj
+import sys
+
+
+def strip(x):
+    return x.strip()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description=("Make the first line unique by appending the number of "
+                     "previous occurences of each value")
+    )
+    parser.add_argument(
+        "header",
+        nargs="*",
+        help="Use those headers instead"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default=" ",
+        help="Split the header line with these characters"
+    )
+    parser.add_argument(
+        "--suffix",
+        default="-",
+        help="Use this string to join the number and the value"
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    l = next(iter(sys.stdin))
+    occurences = defaultdict(int)
+    values = []
+    for i, v in enumerate(map(strip, l.split(args.delimiter))):
+        if i < len(args.header):
+            values.append(args.header[i])
+        else:
+            values.append(v + args.suffix + str(occurences[v]))
+            occurences[v] += 1
+    print args.delimiter.join(values)
+    try:
+        for line in sys.stdin:
+            sys.stdout.write(line)
+    except IOError as e:
+        if e.errno == errno.EPIPE:
+            pass
+        else:
+            raise

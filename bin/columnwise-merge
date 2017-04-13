@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+
+import argparse
+import errno
+from functools import wraps
+from itertools import izip
+
+
+def transpose2d(v):
+    if len(v) == 0:
+        return v
+
+    return [
+        [v[i][j] for i in range(len(v))]
+        for j in range(len(v[0]))
+    ]
+
+
+def stddev(x):
+    mu = sum(x) / len(x)
+    var = sum((xi-mu)**2 for xi in x)
+    return var**0.5
+
+
+def with_values_as(vtype):
+    def deco(f):
+        @wraps(f)
+        def inner(lines, args):
+            try:
+                v = [map(vtype, l.split(args.delimiter)) for l in lines]
+                return f(v, args)
+            except ValueError:
+                return lines[0].strip()
+        return inner
+    return deco
+
+
+def transposed(f):
+    @wraps(f)
+    def inner(v, args):
+        return f(transpose2d(v), args)
+    return inner
+
+
+def concat(lines, args):
+    return args.delimiter.join([
+        x.strip() for x in lines
+    ])
+
+
+@with_values_as(float)
+@transposed
+def avg(values, args):
+    return args.delimiter.join([
+        str(sum(v) / len(v))
+        for v in values
+    ])
+
+
+@with_values_as(float)
+@transposed
+def std(values, args):
+    return args.delimiter.join([
+        str(stddev(v)) for v in values
+    ])
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Merge many files by joining their lines"
+    )
+
+    parser.add_argument(
+        "file",
+        nargs="+",
+        help="The files to merge"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default=" ",
+        help="Choose the delimiter that will be joining the lines of the files"
+    )
+    parser.add_argument(
+        "--avg",
+        dest="function",
+        action="store_const",
+        default=concat,
+        const=avg
+    )
+    parser.add_argument(
+        "--std",
+        dest="function",
+        action="store_const",
+        default=concat,
+        const=std
+    )
+
+    args = parser.parse_args(argv)
+
+    descriptors = []
+    try:
+        for path in args.file:
+            descriptors.append(open(path))
+        for lines in izip(*descriptors):
+            print args.function(lines, args)
+    except IOError as e:
+        if e.errno == errno.EPIPE:
+            pass
+        else:
+            raise
+    finally:
+        for f in descriptors:
+            f.close()
+
+
+if __name__ == "__main__":
+    import sys
+    main(sys.argv[1:])

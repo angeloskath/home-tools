@@ -1,0 +1,246 @@
+#!/usr/bin/env python
+
+from Queue import Queue, Empty as QueueEmpty
+import argparse
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import numpy as np
+import threading
+import time
+import sys
+
+
+def last(iterable):
+    for x in iterable:
+        pass
+    return x
+
+
+def create_slice(s):
+    def none_or_int(x):
+        try:
+            return int(x.strip())
+        except ValueError:
+            return None
+
+    return slice(*map(none_or_int, s.split(":")))
+
+
+def create_filter(s):
+    def inner(x):
+        coeff = np.array(map(float, s.split(",")))
+        coeff /= coeff.sum()
+        return np.hstack([
+            np.convolve(x[:, i], coeff, mode="valid")[:, np.newaxis]
+            for i in range(x.shape[1])
+        ])
+    return inner
+
+
+def plot(
+    fig, ax,
+    data, labels,
+    subplots, first_is_x, logscale,
+    title, xlabel, ylabel
+):
+    lines = []
+    if subplots:
+        N, _ = ax.shape
+        for i in range(N):
+            for j in range(N):
+                idx = i*N + j + int(first_is_x)
+                if idx < data.shape[1]:
+                    lines.extend(ax[i, j].plot(
+                        data[:, 0] if first_is_x else range(len(data)),
+                        data[:, idx]
+                    ))
+                    if labels[idx] is not None:
+                        ax[i, j].set_title(labels[idx])
+                    if logscale:
+                        ax[i, j].set_yscale("log")
+                else:
+                    ax[i, j].set_axis_off()
+    else:
+        for d, l in zip(data.T[int(first_is_x):], labels[int(first_is_x):]):
+            lines.extend(ax.plot(
+                data[:, 0] if first_is_x else range(len(data)),
+                d,
+                label=l
+            ))
+        if logscale:
+            ax.set_yscale("log")
+        ax.set_title(title)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        plt.legend()
+
+    return lines
+
+
+def update_plot(data, lines, ax, filter, slice, first_is_x):
+    N = ax.shape[1] if isinstance(ax, np.ndarray) else None
+    filtered = filter(data)
+    xmin = ymin = float("inf")
+    xmax = ymax = -float("inf")
+    if len(filtered[slice]) <= 1:
+        return lines, ax
+    for i, l in enumerate(lines):
+        x = filtered[slice, 0] if first_is_x else np.arange(len(filtered[slice]))
+        y = filtered[slice, i+int(first_is_x)]
+        l.set_xdata(x)
+        l.set_ydata(y)
+        if N is not None:
+            r, c = divmod(i, N)
+            ax[r, c].set_xlim((x.min(), x.max()))
+            ax[r, c].set_ylim((y.min(), y.max()))
+        else:
+            xmin, xmax = min(x.min(), xmin), max(x.max(), xmax)
+            ymin, ymax = min(y.min(), ymin), max(y.max(), ymax)
+    if N is None:
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+
+    return lines, ax
+
+
+def read_lines():
+    def reading_thread(q):
+        while True:
+            l = sys.stdin.readline()
+            if l == "":
+                break
+            q.put(l)
+
+    q = Queue()
+    t = threading.Thread(target=reading_thread, args=(q,))
+    t.daemon = True
+    t.start()
+
+    return t, q
+
+
+def data_gen(data, delimiter, stop_at_eof=False):
+    t, q = read_lines()
+
+    while True:
+        try:
+            line = q.get_nowait()
+            data = np.vstack([
+                data,
+                np.array(map(float, line.split(delimiter))).reshape(1, -1)
+            ])
+        except QueueEmpty:
+            yield data
+            if not t.is_alive() and stop_at_eof:
+                break
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Plot data with lines from stdin"
+    )
+
+    parser.add_argument(
+        "--first_is_x",
+        action="store_true",
+        help="Use the first number for the x axis"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        help="Split on this delimiter"
+    )
+    parser.add_argument(
+        "--subplots",
+        action="store_true",
+        help="Plot the lines into a NxN subplot grid"
+    )
+    parser.add_argument(
+        "--logscale",
+        action="store_true",
+        help="Use logscale for the y axis"
+    )
+    parser.add_argument(
+        "--slice",
+        type=create_slice,
+        help="Slice the dataset",
+        default=slice(None)
+    )
+    parser.add_argument(
+        "--filter",
+        type=create_filter,
+        default=lambda x: x,
+        help="Convolve data with a 1D filter with those coefficients"
+    )
+    parser.add_argument(
+        "--title",
+        default="",
+        help="Set the title in the case of single plot"
+    )
+    parser.add_argument(
+        "--xlabel",
+        default="",
+        help="Set the xlabel in the case of single plot"
+    )
+    parser.add_argument(
+        "--ylabel",
+        default="",
+        help="Set the xlabel in the case of single plot"
+    )
+    parser.add_argument(
+        "--non_interactive",
+        dest="interactive",
+        action="store_false",
+        help="Don't update the plot with new points read from stdin"
+    )
+
+    args = parser.parse_args(argv)
+
+    # Try to figure out get the labels and the first data
+    firstline = sys.stdin.readline()
+    try:
+        data = np.array(
+            map(float, firstline.split(args.delimiter))
+        ).reshape(1, -1)
+        labels = [None]*data.shape[1]
+    except ValueError:
+        labels = firstline.split(args.delimiter)
+        firstline = sys.stdin.readline()
+        data = np.array(
+            map(float, firstline.split(args.delimiter))
+        ).reshape(1, -1)
+
+    # Create the figure and the axes
+    if args.subplots:
+        N = int(np.ceil(np.sqrt(
+            data.shape[1] - 1 if args.first_is_x else data.shape[1]
+        )))
+        fig, ax = plt.subplots(N, N)
+    else:
+        fig, ax = plt.subplots()
+
+    if args.interactive:
+        lines = plot(
+            fig, ax,
+            data, labels,
+            args.subplots, args.first_is_x, args.logscale,
+            args.title, args.xlabel, args.ylabel
+        )
+        anim = FuncAnimation(
+            fig, update_plot,
+            frames=data_gen(data, args.delimiter),
+            fargs=(lines, ax, args.filter, args.slice, args.first_is_x),
+            interval=2000
+        )
+    else:
+        data = last(data_gen(data, args.delimiter, stop_at_eof=True))
+        lines = plot(
+            fig, ax,
+            args.filter(data)[args.slice], labels,
+            args.subplots, args.first_is_x, args.logscale,
+            args.title, args.xlabel, args.ylabel
+        )
+    plt.show()
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

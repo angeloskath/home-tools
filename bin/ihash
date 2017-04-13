@@ -1,0 +1,4 @@
+#!/bin/bash
+
+read -s password
+printf $password | md5sum | cut -d " " -f 1 | head -c32 | xclip -selection c
