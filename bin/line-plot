@@ -58,8 +58,11 @@ def plot(
                         ax[i, j].set_title(labels[idx])
                     if logscale:
                         ax[i, j].set_yscale("log")
+                    ax[i, j].set_xlabel(xlabel)
+                    ax[i, j].set_ylabel(ylabel)
                 else:
                     ax[i, j].set_axis_off()
+        fig.suptitle(title)
     else:
         for d, l in zip(data.T[int(first_is_x):], labels[int(first_is_x):]):
             lines.extend(ax.plot(
