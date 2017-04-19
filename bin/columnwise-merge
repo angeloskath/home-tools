@@ -5,6 +5,7 @@ import errno
 from functools import wraps
 from itertools import izip
 from time import sleep
+import sys
 
 
 def transpose2d(v):
@@ -95,6 +96,12 @@ def main(argv):
         help="Emulate the behaviour of 'tail -f'"
     )
     parser.add_argument(
+        "--no_flush",
+        action="store_false",
+        dest="flush",
+        help="Do not flush the stdout after every line"
+    )
+    parser.add_argument(
         "--delimiter", "-d",
         default=" ",
         help="Choose the delimiter that will be joining the lines of the files"
@@ -122,6 +129,8 @@ def main(argv):
         generators = [line_generator(f, args.follow) for f in descriptors]
         for lines in izip(*generators):
             print args.function(lines, args)
+            if args.flush:
+                sys.stdout.flush()
     except IOError as e:
         if e.errno == errno.EPIPE:
             pass
@@ -135,5 +144,4 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    import sys
     main(sys.argv[1:])
