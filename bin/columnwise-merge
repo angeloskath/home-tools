@@ -4,6 +4,7 @@ import argparse
 import errno
 from functools import wraps
 from itertools import izip
+from time import sleep
 
 
 def transpose2d(v):
@@ -65,6 +66,19 @@ def std(values, args):
     ])
 
 
+def line_generator(f, follow=False):
+    while True:
+        l = f.readline()
+        if l == "":
+            if follow:
+                sleep(1)
+                f.seek(0, 1)
+            else:
+                break
+        else:
+            yield l
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Merge many files by joining their lines"
@@ -74,6 +88,11 @@ def main(argv):
         "file",
         nargs="+",
         help="The files to merge"
+    )
+    parser.add_argument(
+        "--follow", "-f",
+        action="store_true",
+        help="Emulate the behaviour of 'tail -f'"
     )
     parser.add_argument(
         "--delimiter", "-d",
@@ -99,15 +118,17 @@ def main(argv):
 
     descriptors = []
     try:
-        for path in args.file:
-            descriptors.append(open(path))
-        for lines in izip(*descriptors):
+        descriptors = [open(path) for path in args.file]
+        generators = [line_generator(f, args.follow) for f in descriptors]
+        for lines in izip(*generators):
             print args.function(lines, args)
     except IOError as e:
         if e.errno == errno.EPIPE:
             pass
         else:
             raise
+    except KeyboardInterrupt:
+        pass
     finally:
         for f in descriptors:
             f.close()
