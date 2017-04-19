@@ -3,7 +3,6 @@
 import argparse
 import errno
 from collections import defaultdict
-from shutil import copyfileobj
 import sys
 
 
@@ -27,6 +26,12 @@ if __name__ == "__main__":
         help="Split the header line with these characters"
     )
     parser.add_argument(
+        "--no_flush",
+        action="store_false",
+        dest="flush",
+        help="Do not flush stdout after every line"
+    )
+    parser.add_argument(
         "--suffix",
         default="-",
         help="Use this string to join the number and the value"
@@ -34,7 +39,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args(sys.argv[1:])
 
-    l = next(iter(sys.stdin))
+    l = sys.stdin.readline()
     occurences = defaultdict(int)
     values = []
     for i, v in enumerate(map(strip, l.split(args.delimiter))):
@@ -45,8 +50,13 @@ if __name__ == "__main__":
             occurences[v] += 1
     print args.delimiter.join(values)
     try:
-        for line in sys.stdin:
+        while True:
+            line = sys.stdin.readline()
+            if line == "":
+                break
             sys.stdout.write(line)
+            if args.flush:
+                sys.stdout.flush()
     except IOError as e:
         if e.errno == errno.EPIPE:
             pass
