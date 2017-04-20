@@ -41,7 +41,8 @@ def plot(
     fig, ax,
     data, labels,
     subplots, first_is_x, logscale,
-    title, xlabel, ylabel
+    title, xlabel, ylabel,
+    ylim
 ):
     lines = []
     if subplots:
@@ -60,6 +61,7 @@ def plot(
                         ax[i, j].set_yscale("log")
                     ax[i, j].set_xlabel(xlabel)
                     ax[i, j].set_ylabel(ylabel)
+                    ax[i, j].set_ylim(ylim)
                 else:
                     ax[i, j].set_axis_off()
         fig.suptitle(title)
@@ -75,12 +77,13 @@ def plot(
         ax.set_title(title)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
+        ax.set_ylim(ylim)
         plt.legend()
 
     return lines
 
 
-def update_plot(data, lines, ax, filter, slice, first_is_x):
+def update_plot(data, lines, ax, filter, slice, first_is_x, ylim):
     N = ax.shape[1] if isinstance(ax, np.ndarray) else None
     filtered = filter(data)
     xmin = ymin = float("inf")
@@ -94,14 +97,16 @@ def update_plot(data, lines, ax, filter, slice, first_is_x):
         l.set_ydata(y)
         if N is not None:
             r, c = divmod(i, N)
+            if not ylim:
+                ax[r, c].set_ylim((y.min(), y.max()))
             ax[r, c].set_xlim((x.min(), x.max()))
-            ax[r, c].set_ylim((y.min(), y.max()))
         else:
             xmin, xmax = min(x.min(), xmin), max(x.max(), xmax)
             ymin, ymax = min(y.min(), ymin), max(y.max(), ymax)
     if N is None:
+        if not ylim:
+            ax.set_ylim(ymin, ymax)
         ax.set_xlim(xmin, xmax)
-        ax.set_ylim(ymin, ymax)
 
     return lines, ax
 
@@ -190,6 +195,12 @@ def main(argv):
         help="Set the xlabel in the case of single plot"
     )
     parser.add_argument(
+        "--ylim",
+        type=lambda x: map(float, x.split(",")),
+        default=None,
+        help="Specify the limits of the y axis"
+    )
+    parser.add_argument(
         "--non_interactive",
         dest="interactive",
         action="store_false",
@@ -226,12 +237,13 @@ def main(argv):
             fig, ax,
             data, labels,
             args.subplots, args.first_is_x, args.logscale,
-            args.title, args.xlabel, args.ylabel
+            args.title, args.xlabel, args.ylabel, args.ylim
         )
         anim = FuncAnimation(
             fig, update_plot,
             frames=data_gen(data, args.delimiter),
-            fargs=(lines, ax, args.filter, args.slice, args.first_is_x),
+            fargs=(lines, ax, args.filter, args.slice,
+                   args.first_is_x, args.ylim),
             interval=2000
         )
     else:
@@ -240,7 +252,7 @@ def main(argv):
             fig, ax,
             args.filter(data)[args.slice], labels,
             args.subplots, args.first_is_x, args.logscale,
-            args.title, args.xlabel, args.ylabel
+            args.title, args.xlabel, args.ylabel, args.ylim
         )
     plt.show()
 
