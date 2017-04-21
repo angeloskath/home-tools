@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+
+import argparse
+import errno
+import sys
+
+
+def fields_type(fields):
+    def field_range(r):
+        r = r.split("-")
+        if len(r) == 2:
+            return list(range(int(r[0]), int(r[1])+1))
+        else:
+            return map(int, r)
+
+    return map(
+        lambda x: x-1,
+        sum(
+            map(
+                field_range,
+                fields.split(",")
+            ),
+            []
+        )
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="An unbuffered watered down clone of cut"
+    )
+
+    parser.add_argument(
+        "--fields", "-f",
+        type=fields_type,
+        help="Select only those fields",
+        default="1"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default="\t",
+        help="Use DELIMITER instead of TAB for field delimiter"
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    try:
+        while True:
+            fields = sys.stdin.readline().strip().split(args.delimiter)
+            sys.stdout.write(
+                args.delimiter.join([fields[f] for f in args.fields]) + "\n"
+            )
+            sys.stdout.flush()
+    except KeyboardInterrupt:
+        pass
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
