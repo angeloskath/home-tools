@@ -73,4 +73,4 @@ while (($# > 0)); do
     esac
 done
 
-awk "{line=\"\"; $func; print substr(line, 2);}"
+awk "{line=\"\"; $func; print substr(line, 2); fflush()}"

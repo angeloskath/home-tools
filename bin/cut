@@ -46,7 +46,10 @@ if __name__ == "__main__":
 
     try:
         while True:
-            fields = sys.stdin.readline().strip().split(args.delimiter)
+            line = sys.stdin.readline()
+            if line == "":
+                break
+            fields = line.strip().split(args.delimiter)
             sys.stdout.write(
                 args.delimiter.join([fields[f] for f in args.fields]) + "\n"
             )
