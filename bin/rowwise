@@ -1,32 +1,76 @@
 #!/bin/bash
 
 if (($# < 1)); then
-    echo "Usage: $0 {avg, sum, var, std}"
+    echo "Usage: $0 [{avg, sum, var, std, max, min}]+"
     exit 1
 fi
 
 # awk code to be injected into an awk program
 _sum="s=0; for (i=1; i<=NF; i++) {s+=\$i;}"
 _var="v=0; for (i=1; i<=NF; i++) {v += (\$i - s/NF)*(\$i - s/NF);}"
-avg="$_sum print s/NF;"
-sum="$_sum print s;"
-var="$_sum $_var print v/NF;"
-std="$_sum $_var print sqrt(v/NF);"
+avg="line=line \" \" s/NF;"
+sum="line=line \" \" s;"
+var="line=line \" \" v/NF;"
+std="line=line \" \" sqrt(v/NF);"
+max="_max=\$1; for (i=2; i<=NF; i++) { _max = (_max < \$i) ? \$i : _max; } \
+    line=line \" \" _max;"
+min="_min=\$1; for (i=2; i<=NF; i++) { _min = (_min > \$i) ? \$i : _min; } \
+    line=line \" \" _min;"
 
+_sum_added=0
+_var_added=0
 func=""
-case $1 in
-    avg)
-    func="$avg"
-    ;;
-    sum)
-    func="$sum"
-    ;;
-    var)
-    func="$var"
-    ;;
-    std)
-    func="$std"
-    ;;
-esac
+while (($# > 0)); do
+    case $1 in
+        avg)
+        if (("$_sum_added" == 0)); then
+            func="$func $_sum"
+            _sum_added=1
+        fi
+        func="$func $avg"
+        shift
+        ;;
+        sum)
+        if (("$_sum_added" == 0)); then
+            func="$func $_sum"
+            _sum_added=1
+        fi
+        func="$func $sum"
+        shift
+        ;;
+        var)
+        if (("$_sum_added" == 0)); then
+            func="$func $_sum"
+            _sum_added=1
+        fi
+        if (("$_var_added" == 0)); then
+            func="$func $_var"
+            _var_added=1
+        fi
+        func="$func $var"
+        shift
+        ;;
+        std)
+        if (("$_sum_added" == 0)); then
+            func="$func $_sum"
+            _sum_added=1
+        fi
+        if (("$_var_added" == 0)); then
+            func="$func $_var"
+            _var_added=1
+        fi
+        func="$func $std"
+        shift
+        ;;
+        min)
+        func="$func $min"
+        shift
+        ;;
+        max)
+        func="$func $max"
+        shift
+        ;;
+    esac
+done
 
-awk "{$func}"
+awk "{line=\"\"; $func; print substr(line, 2);}"

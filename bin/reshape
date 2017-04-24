@@ -20,8 +20,9 @@ BEGIN{                                 \
         l[i] = \$j;                    \
         i++;                           \
         if (i == $N) {                 \
-            for (k=0; k<$N; k++) {     \
-                printf(\"%s \", l[k]); \
+            printf(\"%s\", l[0]);      \
+            for (k=1; k<$N; k++) {     \
+                printf(\" %s\", l[k]); \
             }                          \
             printf(\"\\n\");           \
             i=0;                       \
