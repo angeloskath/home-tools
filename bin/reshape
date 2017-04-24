@@ -1,0 +1,30 @@
+#!/bin/bash
+
+if (($# < 1)); then
+    echo "Usage: $0 columns"
+    echo ""
+    echo "Arguments"
+    echo "---------"
+    echo "columns: The number of columns we want to reshape into"
+    exit 1
+fi
+
+N=$1
+
+awk "                                  \
+BEGIN{                                 \
+    i=0;                               \
+}                                      \
+{                                      \
+    for (j=1; j<=NF; j++) {            \
+        l[i] = \$j;                    \
+        i++;                           \
+        if (i == $N) {                 \
+            for (k=0; k<$N; k++) {     \
+                printf(\"%s \", l[k]); \
+            }                          \
+            printf(\"\\n\");           \
+            i=0;                       \
+        }                              \
+    }                                  \
+}"

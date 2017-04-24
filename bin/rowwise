@@ -1,0 +1,32 @@
+#!/bin/bash
+
+if (($# < 1)); then
+    echo "Usage: $0 {avg, sum, var, std}"
+    exit 1
+fi
+
+# awk code to be injected into an awk program
+_sum="s=0; for (i=1; i<=NF; i++) {s+=\$i;}"
+_var="v=0; for (i=1; i<=NF; i++) {v += (\$i - s/NF)*(\$i - s/NF);}"
+avg="$_sum print s/NF;"
+sum="$_sum print s;"
+var="$_sum $_var print v/NF;"
+std="$_sum $_var print sqrt(v/NF);"
+
+func=""
+case $1 in
+    avg)
+    func="$avg"
+    ;;
+    sum)
+    func="$sum"
+    ;;
+    var)
+    func="$var"
+    ;;
+    std)
+    func="$std"
+    ;;
+esac
+
+awk "{$func}"
