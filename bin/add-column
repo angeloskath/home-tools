@@ -36,6 +36,12 @@ def main(argv):
         type=float,
         help="Add this value to the initial"
     )
+    parser.add_argument(
+        "--no_flush",
+        dest="flush",
+        action="store_false",
+        help="Do not flush after every line"
+    )
 
     args = parser.parse_args(argv)
 
@@ -52,6 +58,8 @@ def main(argv):
             print v + args.delimiter + line.strip()
         else:
             print line.strip() + args.delimiter + v
+        if args.flush:
+            sys.stdout.flush()
 
 
 if __name__ == "__main__":
