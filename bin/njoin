@@ -80,6 +80,13 @@ def line_generator(f, follow=False):
             yield l
 
 
+def to_file(path):
+    if path == "-":
+        return sys.stdin
+    else:
+        return open(path)
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Merge many files by joining their lines"
@@ -88,7 +95,7 @@ def main(argv):
     parser.add_argument(
         "file",
         nargs="+",
-        help="The files to merge"
+        help="The files to merge (use - for stdin)"
     )
     parser.add_argument(
         "--follow", "-f",
@@ -125,7 +132,7 @@ def main(argv):
 
     descriptors = []
     try:
-        descriptors = [open(path) for path in args.file]
+        descriptors = [to_file(path) for path in args.file]
         generators = [line_generator(f, args.follow) for f in descriptors]
         for lines in izip(*generators):
             print args.function(lines, args)
