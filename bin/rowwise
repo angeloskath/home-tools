@@ -1,76 +1,119 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-if (($# < 1)); then
-    echo "Usage: $0 [{avg, sum, var, std, max, min}]+"
-    exit 1
-fi
+import argparse
+import errno
+from itertools import groupby
+from math import sqrt
+import sys
 
-# awk code to be injected into an awk program
-_sum="s=0; for (i=1; i<=NF; i++) {s+=\$i;}"
-_var="v=0; for (i=1; i<=NF; i++) {v += (\$i - s/NF)*(\$i - s/NF);}"
-avg="line=line \" \" s/NF;"
-sum="line=line \" \" s;"
-var="line=line \" \" v/NF;"
-std="line=line \" \" sqrt(v/NF);"
-max="_max=\$1; for (i=2; i<=NF; i++) { _max = (_max < \$i) ? \$i : _max; } \
-    line=line \" \" _max;"
-min="_min=\$1; for (i=2; i<=NF; i++) { _min = (_min > \$i) ? \$i : _min; } \
-    line=line \" \" _min;"
 
-_sum_added=0
-_var_added=0
-func=""
-while (($# > 0)); do
-    case $1 in
-        avg)
-        if (("$_sum_added" == 0)); then
-            func="$func $_sum"
-            _sum_added=1
-        fi
-        func="$func $avg"
-        shift
-        ;;
-        sum)
-        if (("$_sum_added" == 0)); then
-            func="$func $_sum"
-            _sum_added=1
-        fi
-        func="$func $sum"
-        shift
-        ;;
-        var)
-        if (("$_sum_added" == 0)); then
-            func="$func $_sum"
-            _sum_added=1
-        fi
-        if (("$_var_added" == 0)); then
-            func="$func $_var"
-            _var_added=1
-        fi
-        func="$func $var"
-        shift
-        ;;
-        std)
-        if (("$_sum_added" == 0)); then
-            func="$func $_sum"
-            _sum_added=1
-        fi
-        if (("$_var_added" == 0)); then
-            func="$func $_var"
-            _var_added=1
-        fi
-        func="$func $std"
-        shift
-        ;;
-        min)
-        func="$func $min"
-        shift
-        ;;
-        max)
-        func="$func $max"
-        shift
-        ;;
-    esac
-done
+def _groupby_key(N):
+    cnt = [-1]
+    def inner(*args, **kwargs):
+        cnt[0] += 1
+        return cnt[0] / N
+    return inner
 
-awk "{line=\"\"; $func; print substr(line, 2); fflush()}"
+
+def _groupby(x, N, continuous):
+    if N is None:
+        N = 2**32 if continuous else 1
+    if continuous:
+        for k, g in groupby(x, _groupby_key(N)):
+            yield k, list(g)
+    else:
+        for k in range(min(N, len(x))):
+            yield k, [x[j] for j in range(k, len(x), N)]
+
+def avg(k, x):
+    x = map(float, x)
+    return sum(x) / len(x)
+
+
+def var(k, x):
+    x = map(float, x)
+    mu = sum(x) / len(x)
+
+    return sum((xi-mu)**2 for xi in x) / len(x)
+
+
+def std(k, x):
+    return sqrt(var(k, x))
+
+
+def _min(k, x):
+    return min(map(float, x))
+
+
+def _max(k, x):
+    return max(map(float, x))
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Perform rowwise operations"
+    )
+    parser.add_argument(
+        "op",
+        choices=["avg", "var", "std", "min", "max"],
+        nargs="+",
+        help="The operations that we need to perform"
+    )
+
+    parser.add_argument(
+        "--groupby", "-g",
+        type=int,
+        help="Group every GROUPBY fields and perform each operation on those",
+        default=None
+    )
+    parser.add_argument(
+        "--continuous_group",
+        action="store_true",
+        help=("Assume that the group is continuous (the first N then the "
+              "second N etc) otherwise the group is every N (the first and "
+              "then the Nth etc)")
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default=" ",
+        help="Define the field delimiter"
+    )
+    parser.add_argument(
+        "--no_flush",
+        dest="flush",
+        action="store_false",
+        help="Do not flush after every write"
+    )
+
+    args = parser.parse_args(argv)
+
+    operations = {
+        "avg": avg,
+        "var": var,
+        "std": std,
+        "min": _min,
+        "max": _max
+    }
+    ops = map(lambda x: operations[x], args.op)
+
+    try:
+        while True:
+            line = sys.stdin.readline()
+            if line == "":
+                break
+
+            line = line.strip().split(args.delimiter)
+            print args.delimiter.join([
+                str(op(*g))
+                for g in _groupby(line, args.groupby, args.continuous_group)
+                for op in ops
+            ])
+            if args.flush:
+                sys.stdout.flush()
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
