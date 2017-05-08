@@ -1,31 +1,42 @@
 #!/bin/bash
 
 if (($# < 1)); then
-    echo "Usage: $0 columns"
+    echo "Usage: $0 columns [skip]"
     echo ""
     echo "Arguments"
     echo "---------"
     echo "columns: The number of columns we want to reshape into"
+    echo "skip: Skip that many lines from the beginning"
     exit 1
 fi
 
 N=$1
+if (($# > 1)); then
+    S=$2
+else
+    S=0
+fi
 
-awk "                                  \
-BEGIN{                                 \
-    i=0;                               \
-}                                      \
-{                                      \
-    for (j=1; j<=NF; j++) {            \
-        l[i] = \$j;                    \
-        i++;                           \
-        if (i == $N) {                 \
-            printf(\"%s\", l[0]);      \
-            for (k=1; k<$N; k++) {     \
-                printf(\" %s\", l[k]); \
-            }                          \
-            printf(\"\\n\");           \
-            i=0;                       \
-        }                              \
-    }                                  \
+awk "                                      \
+BEGIN{                                     \
+    i=0;                                   \
+}                                          \
+{                                          \
+    if (NR-1 < $S) {                       \
+        print                              \
+    } else {                               \
+        for (j=1; j<=NF; j++) {            \
+            l[i] = \$j;                    \
+            i++;                           \
+            if (i == $N) {                 \
+                printf(\"%s\", l[0]);      \
+                for (k=1; k<$N; k++) {     \
+                    printf(\" %s\", l[k]); \
+                }                          \
+                printf(\"\\n\");           \
+                i=0;                       \
+            }                              \
+        }                                  \
+    }                                      \
+    fflush()                               \
 }"
