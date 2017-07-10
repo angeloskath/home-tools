@@ -2,27 +2,99 @@
 
 import argparse
 import errno
+from itertools import count
 import sys
 
 
-def fields_type(fields):
-    def field_range(r):
-        r = r.split("-")
-        if len(r) == 2:
-            return list(range(int(r[0]), int(r[1])+1))
-        else:
-            return map(int, r)
+def indexed_field(idx):
+    def inner(i, n, f):
+        return i == idx
+    return inner
 
-    return map(
-        lambda x: x-1,
-        sum(
-            map(
-                field_range,
-                fields.split(",")
-            ),
-            []
-        )
-    )
+
+def range_field(start, stop):
+    def inner(i, n, f):
+        return start <= i <= stop
+    return inner
+
+
+def every_nth_field(start, step):
+    def inner(i, n, f):
+        return (i - start) % step == 0
+    return inner
+
+
+def name_field(name):
+    def prefix(i, n, f):
+        return n.startswith(name[:-1])
+    def suffix(i, n, f):
+        return n.endswith(name[1:])
+    def exact(i, n, f):
+        return n == name
+
+    if name[-1] == "*":
+        return prefix
+    elif name[0] == "*":
+        return suffix
+    else:
+        return exact
+
+
+def field_factory(f):
+    # Is it an integer
+    try:
+        return indexed_field(int(f))
+    except ValueError:
+        pass
+
+    # Is it a range
+    try:
+        r = f.split("-")
+        if len(r) == 2:
+            return range_field(*map(int, r))
+    except ValueError:
+        pass
+
+    # Is it an every nth field
+    try:
+        r = f.split("::")
+        if len(r) == 2:
+            return every_nth_field(*map(int, r))
+    except ValueError:
+        pass
+
+    # Assume it is a name field
+    return name_field(f)
+
+
+def fields_type(fields):
+    return map(field_factory, fields.split(","))
+
+
+def _lines():
+    """Return the next line from stdin but return the first line twice"""
+    # Special care for the firstline
+    l = sys.stdin.readline()
+    if l != "":
+        yield l
+
+    # Do while loop
+    while l != "":
+        yield l
+        l = sys.stdin.readline()
+
+
+def split(delimiter, line):
+    return line.strip().split(delimiter)
+
+
+def project(wanted_fields, field_names, fields):
+    return [
+        f
+        for wf in wanted_fields
+        for i, n, f in zip(count(1), field_names, fields)
+        if wf(i, n, f)
+    ]
 
 
 if __name__ == "__main__":
@@ -45,14 +117,13 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
 
     try:
-        while True:
-            line = sys.stdin.readline()
-            if line == "":
-                break
-            fields = line.strip().split(args.delimiter)
-            sys.stdout.write(
-                args.delimiter.join([fields[f] for f in args.fields]) + "\n"
-            )
+        lines = _lines()
+        field_names = split(args.delimiter, next(lines))
+        for line in lines:
+            fields = split(args.delimiter, line)
+            sys.stdout.write(args.delimiter.join(
+                project(args.fields, field_names, fields)
+            ) + "\n")
             sys.stdout.flush()
     except KeyboardInterrupt:
         pass
