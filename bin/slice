@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+
+import argparse
+from itertools import islice
+import sys
+
+
+def maybe_int(x, default=None):
+    try:
+        return int(x)
+    except ValueError:
+        return default
+
+
+def is_negative(x):
+    if x is None:
+        return False
+    else:
+        return x < 0
+
+
+def slice_from_string(x):
+    parts = map(maybe_int, x.split(":")) + [None]*2
+    assert len(parts) > 2
+
+    return slice(*parts[:3])
+
+
+class UnbufferedWritable(object):
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, x):
+        self.stream.write(x)
+        self.stream.flush()
+
+
+def lines(stream):
+    l = stream.readline()
+    while l != "":
+        yield l
+        l = stream.readline()
+
+
+def efficient_slice_through_stream(stream, _slice, out):
+    for line in islice(lines(stream), _slice.start, _slice.stop, _slice.step):
+        out.write(line)
+
+
+def slice_through_stream(stream, _slice, out):
+    for line in stream.readlines()[_slice]:
+        out.write(line)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Slice through stdin lines (head/tail and more)"
+    )
+    parser.add_argument(
+        "slice",
+        help="Define the slice 'start:stop:step'",
+        type=slice_from_string
+    )
+    parser.add_argument(
+        "--buffer",
+        action="store_true",
+        help="Read in chunks using python's io iterators"
+    )
+
+    args = parser.parse_args()
+
+    # Decide the slicing method
+    slicer = efficient_slice_through_stream
+    if any(map(is_negative, [args.slice.start, args.slice.stop, args.slice.step])):
+        slicer = slice_through_stream
+
+    # Buffer the output or not
+    out = sys.stdout
+    if not args.buffer:
+        out = UnbufferedWritable(sys.stdout)
+
+    slicer(sys.stdin, args.slice, out)
