@@ -2,34 +2,34 @@
 
 import argparse
 import errno
-from itertools import count
+from itertools import count, izip_longest, islice
 import sys
 
 
 def indexed_field(idx):
-    def inner(i, n, f):
-        return i == idx
+    def inner(i, N, n, f):
+        return i == idx or i == N+idx+1
     return inner
 
 
 def range_field(start, stop):
-    def inner(i, n, f):
+    def inner(i, N, n, f):
         return start <= i <= stop
     return inner
 
 
 def every_nth_field(start, step):
-    def inner(i, n, f):
+    def inner(i, N, n, f):
         return (i - start) % step == 0
     return inner
 
 
 def name_field(name):
-    def prefix(i, n, f):
+    def prefix(i, N, n, f):
         return n.startswith(name[:-1])
-    def suffix(i, n, f):
+    def suffix(i, N, n, f):
         return n.endswith(name[1:])
-    def exact(i, n, f):
+    def exact(i, N, n, f):
         return n == name
 
     if name[-1] == "*":
@@ -89,11 +89,13 @@ def split(delimiter, line):
 
 
 def project(wanted_fields, field_names, fields):
+    def _zip(*args):
+        return islice(izip_longest(*args), len(args[-1]))
     return [
         f
         for wf in wanted_fields
-        for i, n, f in zip(count(1), field_names, fields)
-        if wf(i, n, f)
+        for i, n, f in _zip(count(1), field_names, fields)
+        if wf(i, len(fields), n, f)
     ]
 
 
