@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import errno
 from itertools import islice
 import sys
 
@@ -79,4 +80,10 @@ if __name__ == "__main__":
     if not args.buffer:
         out = UnbufferedWritable(sys.stdout)
 
-    slicer(sys.stdin, args.slice, out)
+    try:
+        slicer(sys.stdin, args.slice, out)
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
+    except KeyboardInterrupt:
+        pass
