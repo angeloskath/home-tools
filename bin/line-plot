@@ -100,8 +100,9 @@ def plot(
     if subplots:
         N, _ = ax.shape
         axes = product(range(N), range(N))
-        for (xy, label_idx), ij in izip_longest(xy_pairs(data), axes):
-            if xy:
+        for xy_label, ij in izip_longest(xy_pairs(data), axes):
+            if xy_label:
+                xy, label_idx = xy_label
                 lines.extend(ax[ij].plot(*xy))
                 if labels[label_idx] is not None:
                     ax[ij].set_title(labels[label_idx])
@@ -110,6 +111,7 @@ def plot(
                 ax[ij].set_xlabel(xlabel)
                 ax[ij].set_ylabel(ylabel)
                 ax[ij].set_ylim(ylim)
+                ax[ij].grid()
             else:
                 ax[ij].set_axis_off()
         fig.suptitle(title)
@@ -122,6 +124,7 @@ def plot(
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_ylim(ylim)
+        ax.grid()
         plt.legend()
 
     return lines
