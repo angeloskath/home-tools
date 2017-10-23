@@ -4,6 +4,13 @@ import argparse
 import sys
 
 
+def _lines(stream):
+    l = stream.readline()
+    while l != "":
+        yield l
+        l = stream.readline()
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description=("Add a value in every line so that you add a column in "
@@ -45,13 +52,8 @@ def main(argv):
 
     args = parser.parse_args(argv)
 
-    for i, line in enumerate(sys.stdin):
-        v = args.value
-        if args.increment != 0:
-            try:
-                v = str(float(v) + args.increment)
-            except ValueError:
-                pass
+    v = args.value
+    for i, line in enumerate(_lines(sys.stdin)):
         if i == 0 and args.header:
             v = args.header
         if args.prepend:
@@ -60,6 +62,11 @@ def main(argv):
             print line.strip() + args.delimiter + v
         if args.flush:
             sys.stdout.flush()
+        if args.increment != 0:
+            try:
+                v = str(float(v) + args.increment)
+            except ValueError:
+                pass
 
 
 if __name__ == "__main__":
