@@ -112,6 +112,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--delimiter", "-d",
+        type=lambda x: x.decode("string_escape"),
         default="\t",
         help="Use DELIMITER instead of TAB for field delimiter"
     )
