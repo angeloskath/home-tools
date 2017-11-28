@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+import argparse
+import errno
+import sys
+
+
+def try_or_none(f):
+    try:
+        return f()
+    except:
+        return None
+
+
+def _lines(stream):
+    l = stream.readline()
+    while l != "":
+        yield l
+        l = stream.readline()
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Run custom python code for every line in a file"
+    )
+
+    parser.add_argument(
+        "code",
+        help="The code to run"
+    )
+    parser.add_argument(
+        "--delimiter",
+        help="The delimiter for outputing lists of things",
+        default=" "
+    )
+
+    args = parser.parse_args(argv)
+
+    try:
+        for i, l in enumerate(_lines(sys.stdin)):
+            try:
+                local_vars = {
+                    "lineno": i,
+                    "line": l[:-1],
+                    "i": i,
+                    "l": l[:-1],
+                    "fields": try_or_none(lambda: l.split()),
+                    "xs": try_or_none(lambda: map(float, l.split()))
+                }
+                result = eval(args.code, {}, local_vars)
+                if not isinstance(result, (list, tuple)):
+                    result = [result]
+                print args.delimiter.join(map(str, result))
+            except:
+                sys.stdout.write(l)
+            sys.stdout.flush()
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
