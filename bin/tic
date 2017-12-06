@@ -1,0 +1,8 @@
+#!/bin/bash
+
+timer_file="/tmp/timer"
+if (( $# > 0 )); then
+    timer_file="${timer_file}_$1"
+fi
+
+date '+%s%N' >$timer_file

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+now=$(date '+%s%N')
+
+divide=1
+timer_file="/tmp/timer"
+while (( $# > 0 )); do
+    case $1 in
+    -h)
+        echo "$0 [-smu] [name]"
+        exit 1
+        ;;
+    -s)
+        divide=1000000000
+        ;;
+    -m)
+        divide=1000000
+        ;;
+    -u)
+        divide=1000
+        ;;
+    *)
+        timer_file="${timer_file}_$1"
+        ;;
+    esac
+    shift 1
+done
+
+echo $((($now - $(cat $timer_file))/$divide))

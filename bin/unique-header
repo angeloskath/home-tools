@@ -48,6 +48,8 @@ if __name__ == "__main__":
         else:
             values.append(v + args.suffix + str(occurences[v]))
             occurences[v] += 1
+    if len(values) < args.header:
+        values.extend(args.header[len(values):])
     print args.delimiter.join(values)
     try:
         while True:
