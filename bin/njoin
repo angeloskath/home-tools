@@ -3,67 +3,21 @@
 import argparse
 import errno
 from functools import wraps
-from itertools import izip
+from itertools import izip, izip_longest
 from time import sleep
 import sys
 
 
-def transpose2d(v):
-    if len(v) == 0:
-        return v
-
-    return [
-        [v[i][j] for i in range(len(v))]
-        for j in range(len(v[0]))
-    ]
-
-
-def stddev(x):
-    mu = sum(x) / len(x)
-    var = sum((xi-mu)**2 for xi in x)
-    return var**0.5
-
-
-def with_values_as(vtype):
-    def deco(f):
-        @wraps(f)
-        def inner(lines, args):
-            try:
-                v = [map(vtype, l.split(args.delimiter)) for l in lines]
-                return f(v, args)
-            except ValueError:
-                return lines[0].strip()
-        return inner
-    return deco
-
-
-def transposed(f):
+def with_kw(f):
     @wraps(f)
-    def inner(v, args):
-        return f(transpose2d(v), args)
+    def inner(*args, **kwargs):
+        return f(*args)
     return inner
 
 
 def concat(lines, args):
     return args.delimiter.join([
         x.strip() for x in lines
-    ])
-
-
-@with_values_as(float)
-@transposed
-def avg(values, args):
-    return args.delimiter.join([
-        str(sum(v) / len(v))
-        for v in values
-    ])
-
-
-@with_values_as(float)
-@transposed
-def std(values, args):
-    return args.delimiter.join([
-        str(stddev(v)) for v in values
     ])
 
 
@@ -114,28 +68,20 @@ def main(argv):
         help="Choose the delimiter that will be joining the lines of the files"
     )
     parser.add_argument(
-        "--avg",
-        dest="function",
-        action="store_const",
-        default=concat,
-        const=avg
-    )
-    parser.add_argument(
-        "--std",
-        dest="function",
-        action="store_const",
-        default=concat,
-        const=std
+        "--fill",
+        help="Fill empty lines with this value"
     )
 
     args = parser.parse_args(argv)
+
+    zipper = with_kw(izip) if args.fill is None else izip_longest
 
     descriptors = []
     try:
         descriptors = [to_file(path) for path in args.file]
         generators = [line_generator(f, args.follow) for f in descriptors]
-        for lines in izip(*generators):
-            print args.function(lines, args)
+        for lines in zipper(*generators, fillvalue=args.fill):
+            print concat(lines, args)
             if args.flush:
                 sys.stdout.flush()
     except IOError as e:
