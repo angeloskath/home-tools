@@ -4,6 +4,12 @@ import argparse
 import errno
 import sys
 
+try:
+    import numpy as np
+except ImportError:
+    np = None
+    sys.stderr.write("Numpy not available\n")
+
 
 def try_or_none(f):
     try:
@@ -40,6 +46,7 @@ def main(argv):
         for i, l in enumerate(_lines(sys.stdin)):
             try:
                 local_vars = {
+                    "np": np,
                     "lineno": i,
                     "line": l[:-1],
                     "i": i,
