@@ -56,10 +56,12 @@ class XYGenerator(object):
         if j >= self._data.shape[1]:
             raise StopIteration()
 
+        idx_mask = np.logical_not(np.isnan(self._data[:, j]))
+        idxs = np.arange(len(self._data))[idx_mask]
         if i is None:
-            return (np.arange(len(self._data)), self._data[:, j]), j
+            return (idxs, self._data[idxs, j]), j
         else:
-            return (self._data[:, i], self._data[:, j]), j
+            return (self._data[idxs, i], self._data[idxs, j]), j
 
 
 def last(iterable):
