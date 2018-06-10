@@ -22,7 +22,7 @@ def load_image(im):
     return image_cache[0][1]
 
 
-def images(images, times, fps):
+def images(images, times, fps, onframe=lambda t, total: None):
     times = np.loadtxt(times)
     image_idxs = times[:, 0].astype(np.int32)
     durations = times[:, 1]
@@ -31,10 +31,37 @@ def images(images, times, fps):
 
     t, i = 0.0, 0
     while t < times[-1]:
-        yield load_image(images.format(i))
+        yield load_image(images.format(image_idxs[i]))
         t += step
         if t > times[i]:
             i += 1
+        onframe(t, times[-1])
+    onframe(times[-1], times[-1])
+
+
+def progress(width=40, stream=sys.stdout):
+    back = "\b"
+    previous = [-1]
+    prev_buff = [""]
+    def cb(t, total):
+        if t == total:
+            stream.write("\n")
+            return
+        if np.floor(t) == previous[0]:
+            return
+        percentage = t / total
+        filled = int(percentage*width)
+        rem = max(0, width - filled)
+        buff = "[" + "="*filled + "-"*rem + "]" + \
+            " {} / {}".format(np.floor(t), total)
+        stream.write(back*len(prev_buff[0]))
+        stream.write(buff)
+        stream.flush()
+
+        prev_buff[0] = buff
+        previous[0] = np.floor(t)
+
+    return cb
 
 
 def main(argv):
@@ -120,7 +147,7 @@ def main(argv):
 
     # Write the video
     with writer.saving(fig, args.output, args.dpi):
-        for im in images(args.images, args.times, args.fps):
+        for im in images(args.images, args.times, args.fps, progress()):
             frame.set_data(im)
             writer.grab_frame()
 
