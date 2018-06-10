@@ -1,0 +1,130 @@
+#!/usr/bin/env python
+
+import argparse
+from collections import deque
+import sys
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+
+image_cache = deque([(None, None)], maxlen=1)
+def load_image(im):
+    if image_cache[0][0] != im:
+        image_cache.append((
+            im,
+            plt.imread(im)
+        ))
+    return image_cache[0][1]
+
+
+def images(images, times, fps):
+    times = np.loadtxt(times)
+    image_idxs = times[:, 0].astype(np.int32)
+    durations = times[:, 1]
+    times = durations.cumsum()
+    step = 1.0/fps
+
+    t, i = 0.0, 0
+    while t < times[-1]:
+        yield load_image(images.format(i))
+        t += step
+        if t > times[i]:
+            i += 1
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Create a presentation combining images and durations"
+    )
+    parser.add_argument(
+        "images",
+        help="The image name format i.e. 'slide-{:02d}.png'"
+    )
+    parser.add_argument(
+        "times",
+        help="The file containing the duration of each slide"
+    )
+    parser.add_argument(
+        "output",
+        help="The output file"
+    )
+
+    parser.add_argument(
+        "--fps",
+        type=int,
+        default=30,
+        help="Defines how fine the timing will be"
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=300,
+        help="Define the dpi for the rasterization"
+    )
+    parser.add_argument(
+        "--figsize",
+        type=lambda x: list(map(int, x.split("x"))),
+        default="16x9",
+        help="Define the figure size"
+    )
+    parser.add_argument(
+        "--imsize",
+        type=lambda x: list(map(int, x.split("x"))),
+        default="1280x720",
+        help="Define the image size"
+    )
+    parser.add_argument(
+        "--title",
+        default="Presentation",
+        help="Define the title for the metadata"
+    )
+    parser.add_argument(
+        "--artist",
+        default="",
+        help="Define the artist for the metadata"
+    )
+    parser.add_argument(
+        "--comment",
+        default=("Made with matplotlib and moviemaker "
+                 "(github.com/angeloskath/home-tools)"),
+        help="Define a metadata comment"
+    )
+    parser.add_argument(
+        "--matplotlib_backend",
+        default="ffmpeg",
+        help="Define video writer backend"
+    )
+
+    args = parser.parse_args(argv)
+
+    # Create the vieo writer
+    writer = animation.writers[args.matplotlib_backend](
+        fps=args.fps,
+        metadata=dict(
+            title=args.title,
+            artist=args.artist,
+            comment=args.comment
+        )
+    )
+
+    # Create the plot
+    fig = plt.figure(figsize=args.figsize)
+    frame = plt.imshow(np.random.rand(args.imsize[1], args.imsize[0], 3))
+    plt.axis("off")
+    plt.subplots_adjust(bottom=0, left=0, right=1, top=1)
+
+    # Write the video
+    with writer.saving(fig, args.output, args.dpi):
+        for im in images(args.images, args.times, args.fps):
+            frame.set_data(im)
+            writer.grab_frame()
+
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
