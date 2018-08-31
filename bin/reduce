@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if (( $# < 1 )); then
+    f="sum"
+else
+    f=$1
+    shift
+fi
+
+case $f in
+"sum")
+    prog='BEGIN{s=0} {s+=$1} END{print s}'
+esac
+
+awk "$prog"
