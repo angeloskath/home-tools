@@ -57,12 +57,20 @@ def main(argv=None):
         "--save", "-s",
         help="Save the animation in a video file"
     )
+    parser.add_argument(
+        "--no_axis",
+        dest="axis",
+        action="store_false",
+        help="Hide the axis"
+    )
 
     args = parser.parse_args()
 
     images = ImageList([l.strip() for l in sys.stdin])
     figure, axis = plt.subplots(figsize=args.size)
     img_plot = axis.imshow(images[0], animated=True)
+    if not args.axis:
+        axis.axis("off")
     img_animation = FuncAnimation(
         figure,
         update,
