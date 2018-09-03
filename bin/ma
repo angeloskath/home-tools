@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import argparse
 import errno
 import sys
@@ -37,9 +39,9 @@ def main(argv):
                 fields = map(float, l.split(args.delimiter))
                 for i, f in enumerate(fields):
                     avgs[i] = args.alpha*avgs.get(i, f) + (1.0-args.alpha)*f
-                print args.delimiter.join([
+                print(args.delimiter.join([
                     str(avgs[i]) for i in range(len(avgs))
-                ])
+                ]))
             except:
                 sys.stdout.write(l)
             sys.stdout.flush()

@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import argparse
 import errno
 from functools import wraps
-from itertools import izip, izip_longest
+try:
+    from itertools import izip, izip_longest
+except ImportError:
+    from itertools import zip_longest as izip_longest
+    izip = zip
 from time import sleep
 import sys
 
@@ -81,7 +87,7 @@ def main(argv):
         descriptors = [to_file(path) for path in args.file]
         generators = [line_generator(f, args.follow) for f in descriptors]
         for lines in zipper(*generators, fillvalue=args.fill):
-            print concat(lines, args)
+            print(concat(lines, args))
             if args.flush:
                 sys.stdout.flush()
     except IOError as e:

@@ -1,8 +1,14 @@
 #!/usr/bin/env python
 
-from Queue import Queue, Empty as QueueEmpty
+try:
+    from Queue import Queue, Empty as QueueEmpty
+except ImportError:
+    from queue import Queue, Empty as QueueEmpty
 import argparse
-from itertools import izip_longest, product
+try:
+    from itertools import izip_longest, product
+except ImportError:
+    from itertools import zip_longest as izip_longest, product
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
@@ -77,12 +83,12 @@ def create_slice(s):
         except ValueError:
             return None
 
-    return slice(*map(none_or_int, s.split(":")))
+    return slice(*list(map(none_or_int, s.split(":"))))
 
 
 def create_filter(s):
     def inner(x):
-        coeff = np.array(map(float, s.split(",")))
+        coeff = np.array(list(map(float, s.split(","))))
         coeff /= coeff.sum()
         return np.hstack([
             np.convolve(x[:, i], coeff, mode="valid")[:, np.newaxis]
@@ -182,7 +188,7 @@ def data_gen(data, delimiter, stop_at_eof=False):
             line = q.get_nowait()
             data = np.vstack([
                 data,
-                np.array(map(float, line.split(delimiter))).reshape(1, -1)
+                np.array(list(map(float, line.split(delimiter)))).reshape(1, -1)
             ])
         except QueueEmpty:
             yield data
@@ -248,7 +254,7 @@ def main(argv):
     )
     parser.add_argument(
         "--ylim",
-        type=lambda x: map(float, x.split(",")),
+        type=lambda x: list(map(float, x.split(","))),
         default=None,
         help="Specify the limits of the y axis"
     )
@@ -265,14 +271,14 @@ def main(argv):
     firstline = sys.stdin.readline()
     try:
         data = np.array(
-            map(float, firstline.split(args.delimiter))
+            list(map(float, firstline.split(args.delimiter)))
         ).reshape(1, -1)
         labels = [None]*data.shape[1]
     except ValueError:
         labels = firstline.split(args.delimiter)
         firstline = sys.stdin.readline()
         data = np.array(
-            map(float, firstline.split(args.delimiter))
+            list(map(float, firstline.split(args.delimiter)))
         ).reshape(1, -1)
 
     # Create a XYGenerator to return the xy pairs for plotting

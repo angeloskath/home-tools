@@ -21,7 +21,7 @@ def is_negative(x):
 
 
 def slice_from_string(x):
-    parts = map(maybe_int, x.split(":")) + [None]*2
+    parts = list(map(maybe_int, x.split(":"))) + [None]*2
     assert len(parts) > 2
 
     return slice(*parts[:3])
