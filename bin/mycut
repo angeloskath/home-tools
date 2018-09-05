@@ -2,8 +2,19 @@
 
 import argparse
 import errno
-from itertools import count, izip_longest, islice
+from itertools import count, islice
+try:
+    from itertools import izip_longest
+except ImportError:
+    from itertools import zip_longest as izip_longest
 import sys
+
+
+def string_escape(x):
+    try:
+        return bytes(x, encoding="utf-8").decode("unicode_escape")
+    except TypeError:
+        return x.decode("string_escape")
 
 
 def indexed_field(idx):
@@ -51,7 +62,7 @@ def field_factory(f):
     try:
         r = f.split("-")
         if len(r) == 2:
-            return range_field(*map(int, r))
+            return range_field(*list(map(int, r)))
     except ValueError:
         pass
 
@@ -59,7 +70,7 @@ def field_factory(f):
     try:
         r = f.split("::")
         if len(r) == 2:
-            return every_nth_field(*map(int, r))
+            return every_nth_field(*list(map(int, r)))
     except ValueError:
         pass
 
@@ -68,7 +79,7 @@ def field_factory(f):
 
 
 def fields_type(fields):
-    return map(field_factory, fields.split(","))
+    return list(map(field_factory, fields.split(",")))
 
 
 def _lines():
@@ -112,7 +123,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--delimiter", "-d",
-        type=lambda x: x.decode("string_escape"),
+        type=string_escape,
         default="\t",
         help="Use DELIMITER instead of TAB for field delimiter"
     )
