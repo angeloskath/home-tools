@@ -52,12 +52,12 @@ def main(argv):
                     "i": i,
                     "l": l[:-1],
                     "fields": try_or_none(lambda: l.split()),
-                    "xs": try_or_none(lambda: map(float, l.split()))
+                    "xs": try_or_none(lambda: list(map(float, l.split())))
                 }
                 result = eval(args.code, {}, local_vars)
                 if not isinstance(result, (list, tuple)):
                     result = [result]
-                print args.delimiter.join(map(str, result))
+                print(args.delimiter.join(map(str, result)))
             except:
                 sys.stdout.write(l)
             sys.stdout.flush()

@@ -26,12 +26,12 @@ def _groupby(x, N, continuous):
             yield k, [x[j] for j in range(k, len(x), N)]
 
 def avg(k, x):
-    x = map(float, x)
+    x = list(map(float, x))
     return sum(x) / len(x)
 
 
 def var(k, x):
-    x = map(float, x)
+    x = list(map(float, x))
     mu = sum(x) / len(x)
 
     return sum((xi-mu)**2 for xi in x) / len(x)
@@ -94,7 +94,7 @@ def main(argv):
         "min": _min,
         "max": _max
     }
-    ops = map(lambda x: operations[x], args.op)
+    ops = list(map(lambda x: operations[x], args.op))
 
     try:
         while True:
@@ -104,13 +104,13 @@ def main(argv):
 
             line = line.strip().split(args.delimiter)
             try:
-                print args.delimiter.join([
+                print(args.delimiter.join([
                     str(op(*g))
                     for g in _groupby(line, args.groupby, args.continuous_group)
                     for op in ops
-                ])
+                ]))
             except ValueError:
-                print args.delimiter.join(line)
+                print(args.delimiter.join(line))
             if args.flush:
                 sys.stdout.flush()
     except IOError as e:

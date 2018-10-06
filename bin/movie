@@ -77,12 +77,25 @@ def main(argv=None):
         action="store_true",
         help="Show the filenames as title"
     )
+    parser.add_argument(
+        "--vmin",
+        type=float,
+        default=0,
+        help="Set the minimum of the heatmap range"
+    )
+    parser.add_argument(
+        "--vmax",
+        type=float,
+        default=1,
+        help="Set the maximum of the heatmap range"
+    )
 
     args = parser.parse_args()
 
     images = ImageList([l.strip() for l in sys.stdin])
     figure, axis = plt.subplots(figsize=args.size)
-    img_plot = axis.imshow(images[0].data, animated=True)
+    img_plot = axis.imshow(images[0].data, vmin=args.vmin, vmax=args.vmax,
+                           animated=True)
     title = axis.text(0, 0, "", ha="left", va="top", color="white")
     if not args.axis:
         axis.axis("off")

@@ -10,6 +10,10 @@ fi
 case $f in
 "sum")
     prog='BEGIN{s=0} {s+=$1} END{print s}'
+    ;;
+"avg")
+    prog='BEGIN{s=0; c=0} {s+=$1; c+=1} END{print s/c}'
+    ;;
 esac
 
 awk "$prog"
