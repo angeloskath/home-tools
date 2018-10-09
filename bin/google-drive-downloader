@@ -1,0 +1,190 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
+import argparse
+from collections import deque, namedtuple
+import io
+import os
+from os import path
+import sys
+import time
+
+try:
+    from googleapiclient.discovery import build as build_google_service
+    from googleapiclient.http import MediaIoBaseDownload
+    from httplib2 import Http
+    import oauth2client.file
+    import oauth2client.tools
+    import oauth2client.client
+except ImportError:
+    print(("{} depends on googleapiclient, httplib2 and oauth2client.\nPlease"
+           "run\n    pip install googleapiclient, httplib2,"
+           "oauth2client").format(sys.argv[0]))
+    sys.exit(1)
+
+SCOPES = "https://www.googleapis.com/auth/drive.readonly"
+CONFIG = path.join(path.expanduser("~"), ".config", "google-drive-downloader")
+
+
+DriveFile = namedtuple("DriveFile", ["id", "name", "folder", "children"])
+
+
+def _print(*args, **kwargs):
+    v = kwargs.pop("verbose", True)
+    if v > 0:
+        print(*args, **kwargs)
+
+
+def connect_to_drive(token, credentials, args):
+    store = oauth2client.file.Storage(token)
+    creds = store.get()
+    if not creds or creds.invalid:
+        flow = oauth2client.client.flow_from_clientsecrets(credentials, SCOPES)
+        creds = oauth2client.tools.run_flow(flow, store, flags=args)
+    return build_google_service("drive", "v3", http=creds.authorize(Http()))
+
+
+def is_folder(file_metadata):
+    return file_metadata["mimeType"] == "application/vnd.google-apps.folder"
+
+
+def get_file_list(drive, folder):
+    query = "'{}' in parents".format(folder)
+    result = drive.files().list(q=query).execute()
+    return [
+        DriveFile(
+            r["id"],
+            r["name"],
+            is_folder(r),
+            get_file_list(drive, r["id"]) if is_folder(r) else []
+        )
+        for r in result.get("files", [])
+    ]
+
+
+def folders(files, folder=""):
+    for f in files:
+        if f.folder:
+            newfolder = path.join(folder, f.name)
+            yield newfolder
+            for ff in folders(f.children, newfolder):
+                yield ff
+
+
+def files(file_list, folder=""):
+    for f in file_list:
+        if f.folder:
+            for ff in files(f.children, path.join(folder, f.name)):
+                yield ff
+        else:
+            yield (f, path.join(folder, f.name))
+
+
+def download(drive, f, fullpath):
+    req = drive.files().get_media(fileId=f.id)
+    output_file = io.FileIO(fullpath, "w")
+    downloader = MediaIoBaseDownload(output_file, req)
+    while True:
+        status, done = downloader.next_chunk()
+        if status:
+            yield status
+        if done:
+            break
+
+
+def _print_download(downloader):
+    downloader = iter(downloader)
+    end = None
+    start = time.time()
+    for p in downloader:
+        end = time.time()
+        speed = p.resumable_progress / 1024 / 1024 / (end-start)
+        message = "{} MB / {} MB - {} MB/s".format(
+            p.resumable_progress / 1024 / 1024,
+            p.total_size / 1024 / 1024,
+            speed
+        )
+        print("\33[2K\r"+message, end="")
+    print("")
+
+
+def consume(iterable):
+    for _ in iterable:
+        pass
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description=("Download a folder from google drive.\n\nIn order to "
+                     "generate credientials visit\n"
+                     "https://developers.google.com/identity/protocols/OAuth2"
+                     " .\n\nThe default location for the credentials.json is\n"
+                     "~/.config/google-drive-downloader/credentials.json ."),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[oauth2client.tools.argparser]
+    )
+    parser.add_argument(
+        "--credentials",
+        default=path.join(CONFIG, "credentials.json"),
+        help="The app credentials file"
+    )
+    parser.add_argument(
+        "--token",
+        default=path.join(CONFIG, "token.json"),
+        help="Where to save the oauth2 token"
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        dest="verbose",
+        action="store_false",
+        help="Do not print messages in the console"
+    )
+
+    parser.add_argument(
+        "folder_id",
+        help="The drive folder to download"
+    )
+    parser.add_argument(
+        "destination",
+        help="The destination path"
+    )
+
+    args = parser.parse_args(argv)
+
+    # First connect to the google drive API
+    drive = connect_to_drive(args.token, args.credentials, args)
+
+    # Collect the list of files into a nice tree and replicate it in the
+    # destination
+    file_list = get_file_list(drive, args.folder_id)
+    for folder in folders(file_list, args.destination):
+        _print("Making", folder, verbose=args.verbose)
+        if not path.exists(folder):
+            os.mkdir(folder)
+
+    # Now start downloading if the files are not already present
+    download_queue = deque(
+        (drive_file, fullpath)
+        for drive_file, fullpath in files(file_list, args.destination)
+    )
+    while download_queue:
+        drive_file, fullpath = download_queue.popleft()
+        if path.exists(fullpath):
+            _print("Skipping", fullpath, verbose=args.verbose)
+        else:
+            try:
+                _print("Downloading", fullpath, verbose=args.verbose)
+                downloader = download(drive, drive_file, fullpath)
+                if args.verbose:
+                    _print_download(downloader)
+                else:
+                    consume(downloader)
+            except Exception:
+                _print(fullpath, "failed (will retry)", verbose=args.verbose)
+                os.remove(fullpath)
+                download_queue.append((drive_file, fullpath))
+
+
+if __name__ == "__main__":
+    main(None)
