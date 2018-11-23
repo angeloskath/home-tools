@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+
+import argparse
+import errno
+import sys
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Print only full lines that end with a line change"
+    )
+
+    args = parser.parse_args()
+
+    try:
+        lprev = ""
+        l = sys.stdin.readline()
+        while l != "":
+            if l.endswith("\n"):
+                sys.stdout.write(lprev+l)
+                sys.stdout.flush()
+                lprev = ""
+            else:
+                lprev += l
+            l = sys.stdin.readline()
+        if lprev != "":
+            sys.stdout.write(lprev+"\n")
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
+    except KeyboardInterrupt:
+        pass

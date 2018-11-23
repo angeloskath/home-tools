@@ -14,6 +14,12 @@ case $f in
 "avg")
     prog='BEGIN{s=0; c=0} {s+=$1; c+=1} END{print s/c}'
     ;;
+"max")
+    prog='BEGIN{m=0; c=0} {if (c==0) {m=$1; c+=1} else {if ($1>m) {m=$1;}}} END{print m}'
+    ;;
+"min")
+    prog='BEGIN{m=0; c=0} {if (c==0) {m=$1; c+=1} else {if ($1<m) {m=$1;}}} END{print m}'
+    ;;
 esac
 
 awk "$prog"

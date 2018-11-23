@@ -57,14 +57,24 @@ def main(argv=None):
         help="Set the size of the figure in inches"
     )
     parser.add_argument(
+        "--tight",
+        action="store_true",
+        help="Set the tight layout"
+    )
+    parser.add_argument(
+        "--margins",
+        type=lambda x: dict(
+            (a, float(b)) for a,b in
+            [xi.split("=") for xi in x.split(",") if len(xi) > 0]
+        ),
+        default="left=0,right=1",
+        help="Adjust the margins of the plot"
+    )
+    parser.add_argument(
         "--delay", "-d",
         type=int,
         default=200,
         help="Delay between frames in milliseconds"
-    )
-    parser.add_argument(
-        "--save", "-s",
-        help="Save the animation in a video file"
     )
     parser.add_argument(
         "--no_axis",
@@ -89,6 +99,19 @@ def main(argv=None):
         default=1,
         help="Set the maximum of the heatmap range"
     )
+    parser.add_argument(
+        "--save", "-s",
+        help="Save the animation in a video file"
+    )
+    parser.add_argument(
+        "--codec",
+        help="Define a codec to save the video with"
+    )
+    parser.add_argument(
+        "--extra_args",
+        type=lambda x: x.split(",") if x else None,
+        help="Set a comma separated list of extra arguments for the video"
+    )
 
     args = parser.parse_args()
 
@@ -99,6 +122,9 @@ def main(argv=None):
     title = axis.text(0, 0, "", ha="left", va="top", color="white")
     if not args.axis:
         axis.axis("off")
+    if args.tight:
+        plt.tight_layout()
+    plt.subplots_adjust(**args.margins)
     img_animation = FuncAnimation(
         figure,
         update,
@@ -114,7 +140,9 @@ def main(argv=None):
         writer = animation.writers["ffmpeg"](
             fps=int(round(1000./args.delay)),
             bitrate=1800,
-            metadata=dict(artist="Home-tools 'movie'")
+            metadata=dict(artist="Home-tools 'movie'"),
+            codec=args.codec,
+            extra_args=args.extra_args
         )
         img_animation.save(args.save, writer=writer)
     plt.show()
