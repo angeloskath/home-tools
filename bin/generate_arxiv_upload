@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import argparse
 from itertools import product
 import os
@@ -8,11 +9,11 @@ import re
 import shutil
 
 
-GRAPHICS_EXT = ["pdf", "ps", "svg", "png", "jpg"]
+GRAPHICS_EXT = ["", ".pdf", ".ps", ".svg", ".png", ".jpg"]
 
 
 def process_bibliography(texfile, texcontent, output):
-    match = re.search(r'\\bibliography\{([a-zA-Z_\-0-9]+)\}', texcontent)
+    match = re.search(r'\\bibliography\{([a-zA-Z_\-0-9,]+)\}', texcontent)
     if match:
         bbl = texfile[:-4] + ".bbl"
         if not path.exists(bbl):
@@ -40,11 +41,19 @@ def substitute_input(main):
 
 
 def substitute_graphics(main):
-    graphicsregex = r'\\includegraphics(\[[^\]]+\])?\{([a-zA-Z_\-0-9]+)\}'
-    return main, map(
+    graphicsregex = r'\\includegraphics(\[[^\]]+\])?\{([a-zA-Z_\-0-9/.]+)\}'
+    paths = map(
         lambda m: m.group(2),
         re.finditer(graphicsregex, main)
     )
+    paths = {
+        p: p.replace("/", "_")
+        for p in paths
+    }
+    for old, new in paths.items():
+        main = main.replace(old, new)
+
+    return main, paths
 
 
 def main(argv):
@@ -90,13 +99,13 @@ def main(argv):
     main = substitute_input(main)
     main, graphics = substitute_graphics(main)
     with open(path.join(args.output, args.main), "w") as f:
-        print >>f, main
+        print(main, file=f)
 
     # Copy the graphics
-    for graphic, ext in product(graphics, GRAPHICS_EXT):
-        graphic = path.join(graphicspath, graphic + "." + ext)
+    for (graph_old, graph_new), ext in product(graphics.items(), GRAPHICS_EXT):
+        graphic = path.join(graphicspath, graph_old + ext)
         if path.exists(graphic):
-            shutil.copy(graphic, args.output)
+            shutil.copy(graphic, path.join(args.output, graph_new + ext))
 
 
 if __name__ == "__main__":
