@@ -48,6 +48,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     try:
+        result = None
         for i, l in enumerate(_lines(sys.stdin)):
             try:
                 local_vars = {
@@ -57,7 +58,8 @@ def main(argv):
                     "i": i,
                     "l": l[:-1],
                     "fields": try_or_none(lambda: l.split()),
-                    "xs": try_or_none(lambda: list(map(float, l.split())))
+                    "xs": try_or_none(lambda: list(map(float, l.split()))),
+                    "agg": result
                 }
                 result = eval(args.code, {}, local_vars)
                 if not isinstance(result, (list, tuple)):
