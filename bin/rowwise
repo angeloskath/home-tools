@@ -25,6 +25,11 @@ def _groupby(x, N, continuous):
         for k in range(min(N, len(x))):
             yield k, [x[j] for j in range(k, len(x), N)]
 
+def _sum(k, x):
+    x = list(map(float, x))
+    return sum(x)
+
+
 def avg(k, x):
     x = list(map(float, x))
     return sum(x) / len(x)
@@ -55,7 +60,7 @@ def main(argv):
     )
     parser.add_argument(
         "op",
-        choices=["avg", "var", "std", "min", "max"],
+        choices=["sum", "avg", "var", "std", "min", "max"],
         nargs="+",
         help="The operations that we need to perform"
     )
@@ -88,6 +93,7 @@ def main(argv):
     args = parser.parse_args(argv)
 
     operations = {
+        "sum": _sum,
         "avg": avg,
         "var": var,
         "std": std,
