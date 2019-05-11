@@ -35,6 +35,11 @@ def main(argv):
         help="The code to run"
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Show the error instead of printing the full line"
+    )
+    parser.add_argument(
         "--delimiter",
         help="The delimiter for outputing lists of things",
         default=" "
@@ -54,19 +59,22 @@ def main(argv):
                 local_vars = {
                     "np": np,
                     "lineno": i,
-                    "line": l[:-1],
+                    "line": tuple(l[:-1]),
                     "i": i,
-                    "l": l[:-1],
+                    "l": tuple(l[:-1]),
                     "fields": try_or_none(lambda: l.split()),
-                    "xs": try_or_none(lambda: list(map(float, l.split()))),
+                    "xs": try_or_none(lambda: tuple(map(float, l.split()))),
                     "agg": result
                 }
-                result = eval(args.code, {}, local_vars)
+                result = eval(args.code, local_vars, {})
                 if not isinstance(result, (list, tuple)):
                     result = [result]
                 print(args.delimiter.join(map(str, result)), end=args.end)
             except:
-                sys.stdout.write(l)
+                if args.debug:
+                    raise
+                else:
+                    sys.stdout.write(l)
             sys.stdout.flush()
     except IOError as e:
         if e.errno != errno.EPIPE:
