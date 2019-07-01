@@ -4,6 +4,7 @@ import argparse
 from collections import deque, namedtuple
 import sys
 
+import numpy as np
 from matplotlib import animation
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -11,13 +12,26 @@ from skimage.io import imread
 from skimage.util import img_as_float
 
 
-Image = namedtuple("Image", ("filepath", "data"))
+class Image(object):
+    def __init__(self, filepath, normalize):
+        if filepath.endswith(".npy"):
+            data = np.load(filepath)
+        else:
+            data = img_as_float(imread(filepath))
+
+        if normalize:
+            data = data - data.min()
+            data = data / (data.max() + 1e-7)
+
+        self.filepath = filepath
+        self.data = data
 
 
 class ImageList(object):
-    def __init__(self, filenames):
+    def __init__(self, filenames, normalize=False):
         self._filenames = filenames
         self._cache = deque([], 5)
+        self._normalize = normalize
 
     def __len__(self):
         return len(self._filenames)
@@ -31,7 +45,7 @@ class ImageList(object):
         # Read it and add it in the cache
         item = (
             i,
-            Image(self._filenames[i], img_as_float(imread(self._filenames[i])))
+            Image(self._filenames[i], self._normalize)
         )
         self._cache.append(item)
 
@@ -100,6 +114,11 @@ def main(argv=None):
         help="Set the maximum of the heatmap range"
     )
     parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Normalize the images to [0, 1]"
+    )
+    parser.add_argument(
         "--save", "-s",
         help="Save the animation in a video file"
     )
@@ -115,7 +134,7 @@ def main(argv=None):
 
     args = parser.parse_args()
 
-    images = ImageList([l.strip() for l in sys.stdin])
+    images = ImageList([l.strip() for l in sys.stdin], args.normalize)
     figure, axis = plt.subplots(figsize=args.size)
     img_plot = axis.imshow(images[0].data, vmin=args.vmin, vmax=args.vmax,
                            animated=True)
