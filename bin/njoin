@@ -10,8 +10,9 @@ try:
 except ImportError:
     from itertools import zip_longest as izip_longest
     izip = zip
-from time import sleep
+import re
 import sys
+from time import sleep
 
 
 def with_kw(f):
@@ -21,13 +22,20 @@ def with_kw(f):
     return inner
 
 
+def filter(filter_string):
+    if filter_string is None:
+        return lambda x: True
+
+    return lambda x: re.search(filter_string, x) is not None
+
+
 def concat(lines, args):
     return args.delimiter.join([
         x.strip() for x in lines
     ])
 
 
-def line_generator(f, follow=False):
+def line_generator(f, filter=lambda x: True, follow=False):
     while True:
         l = f.readline()
         if l == "":
@@ -37,7 +45,8 @@ def line_generator(f, follow=False):
             else:
                 break
         else:
-            yield l
+            if filter(l):
+                yield l
 
 
 def to_file(path):
@@ -77,6 +86,10 @@ def main(argv):
         "--fill",
         help="Fill empty lines with this value"
     )
+    parser.add_argument(
+        "--filter",
+        help="Accept only lines that pass the filter"
+    )
 
     args = parser.parse_args(argv)
 
@@ -85,7 +98,10 @@ def main(argv):
     descriptors = []
     try:
         descriptors = [to_file(path) for path in args.file]
-        generators = [line_generator(f, args.follow) for f in descriptors]
+        generators = [
+            line_generator(f, filter(args.filter), args.follow)
+            for f in descriptors
+        ]
         for lines in zipper(*generators, fillvalue=args.fill):
             print(concat(lines, args))
             if args.flush:
