@@ -114,6 +114,11 @@ def main(argv=None):
         help="Set the maximum of the heatmap range"
     )
     parser.add_argument(
+        "--cmap",
+        default="viridis",
+        help="Set the matplotlib colormap"
+    )
+    parser.add_argument(
         "--normalize",
         action="store_true",
         help="Normalize the images to [0, 1]"
@@ -137,7 +142,7 @@ def main(argv=None):
     images = ImageList([l.strip() for l in sys.stdin], args.normalize)
     figure, axis = plt.subplots(figsize=args.size)
     img_plot = axis.imshow(images[0].data, vmin=args.vmin, vmax=args.vmax,
-                           animated=True)
+                           animated=True, cmap=args.cmap)
     title = axis.text(0, 0, "", ha="left", va="top", color="white")
     if not args.axis:
         axis.axis("off")
