@@ -1,25 +1,116 @@
-#!/bin/bash
+#!/usr/bin/env python
 
-if (( $# < 1 )); then
-    f="sum"
-else
-    f=$1
-    shift
-fi
+import argparse
+import sys
 
-case $f in
-"sum")
-    prog='BEGIN{s=0} {s+=$1} END{print s}'
-    ;;
-"avg")
-    prog='BEGIN{s=0; c=0} {s+=$1; c+=1} END{print s/c}'
-    ;;
-"max")
-    prog='BEGIN{m=0; c=0} {if (c==0) {m=$1; c+=1} else {if ($1>m) {m=$1;}}} END{print m}'
-    ;;
-"min")
-    prog='BEGIN{m=0; c=0} {if (c==0) {m=$1; c+=1} else {if ($1<m) {m=$1;}}} END{print m}'
-    ;;
-esac
 
-awk "$prog"
+class Reduction:
+    def __init__(self):
+        self.accumulators = None
+
+    def __call__(self, values):
+        self.accumulators = self._update(self.accumulators, values)
+
+    @property
+    def value(self):
+        return self.accumulators
+
+
+class NumberFuncReduce(Reduction):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def _update(self, accumulators, values):
+        if accumulators is None:
+            return tuple(map(float, values))
+        return tuple(
+            self.func(acc, float(v))
+            for acc, v in zip(accumulators, values)
+        )
+
+
+class Sum(NumberFuncReduce):
+    def __init__(self):
+        super().__init__(lambda x, y: x+y)
+
+
+class Min(NumberFuncReduce):
+    def __init__(self):
+        super().__init__(lambda x, y: min(x, y))
+
+
+class Max(NumberFuncReduce):
+    def __init__(self):
+        super().__init__(lambda x, y: max(x, y))
+
+
+class Count(NumberFuncReduce):
+    def __init__(self):
+        super().__init__(lambda x, y: x+1)
+
+    def _update(self, accumulators, values):
+        if accumulators is None:
+            accumulators = tuple([0]*len(values))
+        return super()._update(accumulators, values)
+
+
+class Avg(Reduction):
+    def __init__(self):
+        super().__init__()
+        self.sum = Sum()
+        self.cnt = Count()
+
+    def _update(self, accumulators, values):
+        self.sum(values)
+        self.cnt(values)
+
+    @property
+    def value(self):
+        return tuple(x/y for x, y in zip(self.sum.value, self.cnt.value))
+
+
+def main(argv):
+    parser = argparse.ArgumentParser(
+        description="Perform columnwise reduction operations"
+    )
+    parser.add_argument(
+        "op",
+        choices=["sum", "avg", "min", "max", "cnt"],
+        nargs="+",
+        help="The operations that we need to perform"
+    )
+    parser.add_argument(
+        "--delimiter", "-d",
+        default=" ",
+        help="Define the field delimiter"
+    )
+    args = parser.parse_args(argv)
+
+    operations = {
+        "sum": Sum(),
+        "avg": Avg(),
+        "min": Min(),
+        "max": Max(),
+        "cnt": Count()
+    }
+    ops = list(map(lambda x: operations[x], args.op))
+
+    try:
+        while True:
+            line = sys.stdin.readline()
+            if line == "":
+                break
+
+            line = line.strip().split(args.delimiter)
+            [op(line) for op in ops]
+
+        print(*sum(map(list, zip(*[op.value for op in ops])), []))
+
+    except IOError as e:
+        if e.errno != errno.EPIPE:
+            raise
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
