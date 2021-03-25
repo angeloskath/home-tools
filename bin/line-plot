@@ -264,6 +264,12 @@ def main(argv):
         action="store_false",
         help="Don't update the plot with new points read from stdin"
     )
+    parser.add_argument(
+        "--figsize",
+        type=lambda x: list(map(float, x.split(","))),
+        default=None,
+        help="Specify the size of the figure"
+    )
 
     args = parser.parse_args(argv)
 
@@ -285,11 +291,14 @@ def main(argv):
     xy_pairs = XYGenerator(args.first_is_x, args.xy)
 
     # Create the figure and the axes
+    kwargs = dict()
+    if args.figsize:
+        kwargs["figsize"] = tuple(args.figsize)
     if args.subplots:
         N = int(np.ceil(np.sqrt(xy_pairs.n_pairs(data))))
-        fig, ax = plt.subplots(N, N)
+        fig, ax = plt.subplots(N, N, **kwargs)
     else:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(**kwargs)
 
     if args.interactive:
         lines = plot(

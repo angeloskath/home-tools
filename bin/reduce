@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+from statistics import median
 import sys
 
 
@@ -70,13 +71,29 @@ class Avg(Reduction):
         return tuple(x/y for x, y in zip(self.sum.value, self.cnt.value))
 
 
+class Median(Reduction):
+    def __init__(self):
+        super().__init__()
+
+    def _update(self, accumulators, values):
+        if accumulators is None:
+            accumulators = tuple([] for _ in range(len(values)))
+        for acc, val in zip(accumulators, values):
+            acc.append(val)
+        return accumulators
+
+    @property
+    def value(self):
+        return tuple(median(v) for v in self.accumulators)
+
+
 def main(argv):
     parser = argparse.ArgumentParser(
         description="Perform columnwise reduction operations"
     )
     parser.add_argument(
         "op",
-        choices=["sum", "avg", "min", "max", "cnt"],
+        choices=["sum", "avg", "min", "max", "cnt", "median"],
         nargs="+",
         help="The operations that we need to perform"
     )
@@ -92,7 +109,8 @@ def main(argv):
         "avg": Avg(),
         "min": Min(),
         "max": Max(),
-        "cnt": Count()
+        "cnt": Count(),
+        "median": Median()
     }
     ops = list(map(lambda x: operations[x], args.op))
 
