@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     images = [np.asarray(Image.open(im)) for im in args.image]
 
-    N = math.ceil(math.sqrt(len(images)))
+    N = int(math.ceil(math.sqrt(len(images))))
     fig, axes = plt.subplots(N, N)
     for i in range(N):
         for j in range(N):
