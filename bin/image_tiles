@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+import argparse
+import math
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Show a set of images side by side as tiles"
+    )
+    parser.add_argument(
+        "image",
+        nargs="+",
+        help="The path to the images"
+    )
+    args = parser.parse_args()
+
+    images = [np.asarray(Image.open(im)) for im in args.image]
+
+    N = math.ceil(math.sqrt(len(images)))
+    fig, axes = plt.subplots(N, N)
+    for i in range(N):
+        for j in range(N):
+            axes[i, j].axis("off")
+            if i*N + j < len(images):
+                axes[i, j].imshow(images[i*N + j])
+    plt.subplots_adjust(left=0, top=1, right=1, bottom=0, hspace=0, wspace=0)
+    plt.show()
