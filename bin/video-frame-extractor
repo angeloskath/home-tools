@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+
+import argparse
+
+import cv2
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Extract frames from a video"
+    )
+    parser.add_argument(
+        "video",
+        help="The path to the video file"
+    )
+    parser.add_argument(
+        "output_pattern",
+        help="File pattern to create the output files"
+    )
+
+    args = parser.parse_args()
+
+    cap = cv2.VideoCapture(args.video)
+
+    if not cap.isOpened():
+        raise ValueError("Couldn't open video")
+
+    frames = 0
+    path = args.output_pattern
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        cv2.imshow("Video Extractor", frame)
+
+        key = cv2.waitKey(16) & 0xFF
+        if key == ord("s"):
+            cv2.imwrite(path.format(frames), frame)
+            frames += 1
