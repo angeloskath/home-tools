@@ -20,8 +20,9 @@ def speed_type(s):
     except ValueError:
         def u(x):
             return 1.0 if x > 0 else 0
-        def pulse(x, p):
-            return 1.0 if (x // p) % 2 == 0 else 0
+        def pulse(x, t_on, t_off):
+            remainder = x % (t_on + t_off)
+            return 1 if remainder < t_on else 0
         def fspeed(t):
             return eval(s, dict(u=u, t=t, np=np, pulse=pulse))
         return fspeed
