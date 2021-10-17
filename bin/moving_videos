@@ -11,6 +11,22 @@ import numpy as np
 from tqdm import tqdm
 
 
+def speed_type(s):
+    try:
+        s = float(s)
+        def constant_speed(t):
+            return s
+        return constant_speed
+    except ValueError:
+        def u(x):
+            return 1.0 if x > 0 else 0
+        def pulse(x, p):
+            return 1.0 if (x // p) % 2 == 0 else 0
+        def fspeed(t):
+            return eval(s, dict(u=u, t=t, np=np, pulse=pulse))
+        return fspeed
+
+
 class InfiniteList:
     def __init__(self, lst):
         self.lst = lst
@@ -145,15 +161,15 @@ def main(argv=None):
     )
     parser.add_argument(
         "--xspeed",
-        type=float,
-        default=1,
+        type=speed_type,
+        default=speed_type(1),
         help=("How many horizontal pixels to add to the initial position "
               "every frame (default: 1)")
     )
     parser.add_argument(
         "--yspeed",
-        type=float,
-        default=0,
+        type=speed_type,
+        default=speed_type(0),
         help=("How many vertical pixels to add to the initial position "
               "every frame (default: 1)")
     )
@@ -199,8 +215,8 @@ def main(argv=None):
     y = 0
     for i in tqdm(range(args.n_frames)):
         animation.copy_to(canvas, int(round(x)), int(round(y)), i)
-        x += args.xspeed
-        y += args.yspeed
+        x += args.xspeed(i)
+        y += args.yspeed(i)
         writer.write(canvas)
     writer.release()
 
