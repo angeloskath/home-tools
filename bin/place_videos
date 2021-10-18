@@ -1,0 +1,152 @@
+#!/usr/bin/env python
+
+import argparse
+from functools import lru_cache
+from pathlib import Path
+import re
+
+import cv2
+import numpy as np
+
+from tqdm import tqdm
+
+
+def animation_source_type(s):
+    source, pos = s.split(":")
+    x, y = pos.split("x")
+
+    return source, (int(x), int(y))
+
+
+class InfiniteList:
+    def __init__(self, lst):
+        self.lst = lst
+
+    def __len__(self):
+        return len(self.lst)
+
+    def __getitem__(self, idx):
+        return self.lst[idx % len(self)]
+
+
+def collect_files(folder, pattern):
+    files = []
+    folder = Path(folder)
+    for f in folder.iterdir():
+        if re.match(pattern, f.name):
+            files.append(f)
+    return files
+
+
+def image_reader(resize, cache_size=32):
+    @lru_cache(maxsize=cache_size)
+    def _reader(f):
+        if isinstance(f, Path):
+            f = str(f)
+        im = cv2.imread(f)
+        if im.shape != resize:
+            im = cv2.resize(im, resize)
+        return im
+    return _reader
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Animate images on specific locations on a canvas"
+    )
+
+    parser.add_argument(
+        "animations",
+        type=animation_source_type,
+        nargs="+",
+        help=("The folders containing the animation frames and the "
+              "corresponding positions")
+    )
+
+    parser.add_argument(
+        "--resize",
+        type=lambda x: tuple(int(xi) for xi in x.split("x")),
+        default=(512, 512),
+        help="Resize the images as they are being read"
+    )
+    parser.add_argument(
+        "--pattern",
+        default=".*?[0-9]{3}.png$",
+        help=("Regex pattern to match with the filename for the frames of each "
+              "animation (default: '.*?[0-9]{3}.png$')")
+    )
+    parser.add_argument(
+        "--canvas",
+        type=lambda x: tuple(int(xi) for xi in x.split("x")),
+        default=(512, 512),
+        help="The size of the final canvas (default: 512x512)"
+    )
+    parser.add_argument(
+        "--canvas_img",
+        help="Read the canvas from an image file instead"
+    )
+    parser.add_argument(
+        "--canvas_transparent_replace",
+        type=lambda x: [int(xi) for xi in x.split(",")],
+        default=[0, 0, 0],
+        help="Provide a color to fill the transparent parts of the canvas image"
+    )
+    parser.add_argument(
+        "--canvas_color",
+        type=lambda x: [int(xi) for xi in x.split(",")],
+        default=[0, 0, 0],
+        help="Provide a color to fill the canvas with"
+    )
+    parser.add_argument(
+        "--fps",
+        type=int,
+        default=25,
+        help="How many frames per second to use for the video (default: 25)"
+    )
+    parser.add_argument(
+        "--n_frames",
+        type=int,
+        default=100,
+        help="How many frames to write (default: 100)"
+    )
+    parser.add_argument(
+        "--output_file",
+        default="out.mp4",
+        help="Define the output file (default: out.mp4)"
+    )
+
+    args = parser.parse_args(argv)
+    frames = [
+        InfiniteList(sorted(collect_files(animation[0], args.pattern)))
+        for animation in args.animations
+    ]
+    positions = [animation[1] for animation in args.animations]
+
+    canvas = np.zeros(args.canvas + (3,), dtype=np.uint8)
+    canvas[..., :] = args.canvas_color
+    if args.canvas_img is not None:
+        canvas = cv2.imread(args.canvas_img, cv2.IMREAD_UNCHANGED)
+        if canvas.shape[2] == 4:
+            mask = canvas[:, :, 3:] == 0
+            canvas = np.array(canvas[:, :, :3], dtype=np.uint8)
+            canvas = canvas * (1-mask) + mask * args.canvas_transparent_replace
+            canvas = canvas.astype(np.uint8)
+
+    reader = image_reader(args.resize)
+    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+    writer = cv2.VideoWriter(
+        args.output_file,
+        fourcc,
+        args.fps,
+        (canvas.shape[1], canvas.shape[0])
+    )
+    for i in tqdm(range(args.n_frames)):
+        for f, p in zip(frames, positions):
+            frame = reader(f[i])
+            canvas[p[1]:p[1]+frame.shape[0], p[0]:p[0]+frame.shape[1]] = frame
+        writer.write(canvas)
+    writer.release()
+
+
+if __name__ == "__main__":
+    main()
